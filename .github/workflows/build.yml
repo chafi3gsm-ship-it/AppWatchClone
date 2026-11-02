@@ -3,20 +3,38 @@ on: [push, workflow_dispatch]
 jobs:
   build:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: ./AppWatchClone-Android-Kotlin   # <-- nom du sous-dossier
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
+
+      - name: Locate project
+        id: locate
+        run: |
+          echo "=== Contenu racine ==="
+          ls -la
+          echo "=== Recherche settings.gradle ==="
+          SETTINGS=$(find . -name "settings.gradle.kts" -o -name "settings.gradle" | head -1)
+          if [ -z "$SETTINGS" ]; then
+            echo "❌ Aucun fichier settings.gradle trouvé !"
+            exit 1
+          fi
+          DIR=$(dirname "$SETTINGS")
+          echo "✅ Projet trouvé dans : $DIR"
+          echo "PROJECT_DIR=$DIR" >> $GITHUB_OUTPUT
+
       - name: Setup Gradle Wrapper
+        working-directory: ${{ steps.locate.outputs.PROJECT_DIR }}
         run: gradle wrapper
+
       - name: Build debug APK
+        working-directory: ${{ steps.locate.outputs.PROJECT_DIR }}
         run: ./gradlew assembleDebug
+
       - uses: actions/upload-artifact@v4
         with:
           name: app-debug
-          path: ./AppWatchClone-Android-Kotlin/app/build/outputs/apk/debug/app-debug.apk
+          path: ${{ steps.locate.outputs.PROJECT_DIR }}/app/build/outputs/apk/debug/app-debug.apk
